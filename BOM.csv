@@ -1,0 +1,135 @@
+Block 1 — 4th-Order Sallen-Key Bessel Reconstruction Filter,,,,,,,
+,Qty,Component,Standard Value,Tolerance,Type,Purpose,
+,1,Dual op-amp,AD8032,—,High-speed dual op-amp,Two Sallen-Key stages,
+,1,Filter resistor,1.0 kΩ,1%,Metal film,Stage 1,
+,1,Filter resistor,1.0 kΩ,1%,Metal film,Stage 1,
+,1,Filter resistor,1.0 kΩ,1%,Metal film,Stage 2,
+,1,Filter resistor,1.0 kΩ,1%,Metal film,Stage 2,
+,1,Gain resistor,1.0 kΩ,1%,Metal film,Stage 1 RgR_g,
+,1,Gain resistor,82 Ω,1%,Metal film,Stage 1 RfR_f,
+,1,Gain resistor,1.0 kΩ,1%,Metal film,Stage 2 RgR_g,
+,1,Gain resistor,750 Ω,1%,Metal film,Stage 2 RfR_f,
+,1,Filter capacitor,180 pF,2–5%,C0G/NP0,Stage 1,
+,1,Filter capacitor,180 pF,2–5%,C0G/NP0,Stage 1,
+,1,Filter capacitor,160 pF,2–5%,C0G/NP0,Stage 2,
+,1,Filter capacitor,160 pF,2–5%,C0G/NP0,Stage 2,
+,1,Supply bypass,100 nF,10%,Ceramic,Directly at U1,
+,1,Bulk bypass,10 µF,10–20%,Ceramic/electrolytic,Local supply,
+,1,Supply bypass,1 µF,10%,Ceramic,Supply rail,
+,1,Supply bypass,1 µF,10%,Ceramic,"Other rail, if split supply",
+,1,Input isolation resistor,100 Ω,1%,Metal film,Optional DAC isolation,
+,1,Output isolation resistor,100 Ω,1%,Metal film,Optional cable/probe isolation,
+Block 2 — Transient Muting / Edge-Smoothing,,,,,,,
+,Qty,Component,Standard Value,Tolerance,Type,Purpose,
+,1,Analog switch,ADG701,—,Analog CMOS switch,Hardware muting,
+,1,Signal series resistor,1.0 kΩ,1%,Metal film,Limits shunt current,
+,1,RC ramp resistor,10 kΩ,1%,Metal film,RC timing,
+,1,RC ramp capacitor,100 nF,10%,Ceramic,Gives ~1 ms time constant,
+,1,Enable pull-down,100 kΩ,1%,Metal film,Defines mute state,
+,1,GPIO protection resistor,1.0 kΩ,1%,Metal film,Optional MCU protection,
+,1,MUTE test point,—,—,Header/pad,Oscilloscope,
+,1,EN test point,—,—,Header/pad,Observe control signal,
+,,,,,,,
+,Qty,Component,Value / Part,,,Purpose,Notes
+,,,SECTION 4 — OUTPUT DRIVER,,,,
+,1,Current-feedback power op-amp,THS3091DDA,,,High-current wideband unity-gain buffer/driver,"THS3091 gives 305 MHz bandwidth / 6000 V/µs slew rate, well above the ~500 kHz signal band"
+,1,Input coupling capacitor,"1 µF, ≥25 V",,,AC-couples VGA (Section 3) output into buffer input,Blocks DC offset mismatch between stages
+,1,Non-inverting bias resistor,"10 kΩ, 1%",,,Injects mid-rail bias onto VIN+,High-Z path negligible loading since IB+ ≈ 4 µA typ
+,2,Mid-supply bias divider,"10 kΩ, 1% (×2)",,,Sets ~Vcc/2 reference for single-supply operation,From protected 24 V rail (Section 5) to GND — required since THS3091 has no rail-to-rail single-supply self-bias
+,1,Bias node bypass capacitor,"10 µF, ≥25 V",,,Stabilizes mid-rail reference,Place near R41 R42 divider
+,1,Feedback resistor (RF),"1.78 kΩ, 1%",,,Sets unity gain (G=1) with flat response,Per TI THS3091 Table 8-1; RG intentionally left unpopulated (follower)
+,1,Supply bypass capacitor,"0.1 µF, ≥35 V",,,High-frequency supply decoupling,"Within 0.5"" of V+ pin per datasheet layout guidance"
+,1,Supply bulk capacitor,"6.8 µF, ≥35 V",,,Local energy storage for output current pulses,Near U4 supply pin
+,1,Output back-termination resistor,"49.9 Ω, 1%",,,50 Ω impedance match into coax / piezo transducer,Restores back-termination that was missing in the Class-D design
+,1,Output coupling capacitor,"1 µF, ≥25 V",,,AC-couples output keeps DC off the transducer,"fc ≈ 3 kHz into 50 Ω, far below 500 kHz signal band"
+,1,Output connector,2-pin suitable connector,,,Connects driver output to load,Choose connector for final cable
+,,,SECTION 5 — POWER CONDITIONING,,,,
+,1,Power input connector,"2-pin, ≥26 V, ≥5 A",,,Main power entry,For nominal 24 V input. This protected rail also feeds U4 (THS3091) V+ directly.
+,1,Input fuse / PTC,"3 A, ≥30 V",,,Overcurrent protection,Final rating should match measured input current. Sized with margin for THS3091: ~9.5 mA quiescent + up to 310 mA peak output.
+,1,Reverse-polarity protection,"P-MOSFET / ideal-diode, ≥30 V, ≥5 A",,,Protects power input,Low-loss protection
+,1,Input bulk capacitor,"470 µF, 35 V",,,Input ripple filtering,Low-ESR preferred
+,1,Input ceramic capacitor,"1 µF, 50 V X7R",,,High-frequency input bypass,Near DC/DC input
+,1,Buck DC/DC converter,"LMZM23601, 5 V option",,,Converts 24 V to 5 V,Main efficient low-voltage rail
+,1,DC/DC input capacitor,"10 µF, 50 V X7R",,,DC/DC input decoupling,Near U5
+,1,DC/DC output capacitor,"22 µF, 10 V X7R",,,5 V output filtering,Near U5 output
+,1,Ferrite bead,"≥1 A, ≥100 Ω @ 100 MHz",,,Separates switching noise from clean analog rail,Choose low DCR part
+,1,Low-noise LDO,TPS7A20-3.3,,,Generates clean 3.3 V rail,For sensitive analog/control circuitry
+,1,LDO input capacitor,"1 µF, 10 V X7R",,,LDO input bypass,Near U6
+,1,LDO output capacitor,"1 µF, 10 V X7R",,,LDO output bypass,Near U6
+,1,Analog bulk capacitor,"10 µF, 10 V X7R",,,Local energy storage,3.3 V analog rail
+,2,Analog bypass capacitors,"100 nF, 10 V X7R",,,High-frequency decoupling,2 identical capacitors grouped together
+,1,5 V analog bulk capacitor,"10 µF, 10 V X7R",,,Local 5 V rail storage,Near analog loads
+,4,Power test points,"VIN, 5 V, 3.3 V, GND",,,Testing and debugging,4 test points grouped together
+,,,,,,,
+,,,,,,,
+,,Component Role,Part No. / Manufacturer,Key Specs,,Package,Why Needed
+PART 3 — Variable Gain & Power Control Stage,,,,,,,
+,,"Variable Gain Amplifier
+ (Primary VGA)","AD8330ACPZ-R2
+ Analog Devices","Gain: −50 to +34 dB
+ BW: 150 MHz
+ Slew: 1500 V/µs
+ Supply: 2.7–6 V single
+ Output: Diff, Rail-to-Rail
+ Temp: −40 to +85°C",,"LFCSP-16 SMD
+ (3×3 mm)",Dynamically scales chirp amplitude from MCU/DAC control voltage across full turbidity range. Replaces AD8338 which has 0 stock and 33-week lead.
+,,"Digital Potentiometer
+ (SPI gain control)","MCP41010-I/SN
+ Microchip Technology","Resistance: 10 kΩ
+ Positions: 256 (8-bit)
+ Interface: SPI
+ Supply: 2.7–5.5 V
+ Wiper Imax: 1 mA
+ Package: SOIC-8 / DIP-8",,"SOIC-8 SMD
+ (DIP-8 via I/P suffix)",Simpler alternative to VGA. SPI commands from MCU set gain tap directly in op-amp feedback network. 256 steps adequate for adaptive amplitude control.
+,,"Op-Amp
+ (Gain stage buffer)","OPA2350UA/2K5
+ Texas Instruments","GBW: 38 MHz
+ Slew: 22 V/µs
+ I/O: Rail-to-Rail
+ Supply: 2.7–5.5 V single
+ Noise: 6 nV/√Hz
+ Channels: 2 (dual)",,SOIC-8 SMD,Buffers VGA control loop and drives gain-setting resistor network. Rail-to-rail I/O essential on 3.3 V MCU systems. Dual channel = two buffer functions per IC.
+PART 6 — Hardware Input & Sensor Emulation,,,,,,,
+,,"Panel Potentiometer
+ (Sensor emulation dial)","PTV09A-4020F-B103
+ Bourns Inc.","Resistance: 10 kΩ linear
+ Rotation: 280°
+ Power: 50 mW
+ Shaft: 6 mm D-type
+ Element: Carbon
+ Cycle life: 100,000",,"Panel mount
+ Through-hole",Primary user-facing dial simulating turbidity / salinity / depth. Linear taper (B103) critical — ADC reads voltage proportional to rotation angle. Pair with RC filter (10 kΩ + 100 nF C0G).
+,,"Trimmer Potentiometer
+ (Offset / baseline calibration)","3310Y-001-103L
+ Bourns Inc.","Resistance: 10 kΩ cermet
+ Turns: 1
+ Tolerance: ±10%
+ Power: 0.5 W
+ Adjust: Top, PCB-mount
+ Sealed body",,"PCB trimmer
+ Through-hole","Cermet element stays stable over temperature — critical for fixed offset (e.g. baseline salinity). Set once at assembly, left inside enclosure. Sealed body resists contamination."
+,,"RC Filter Resistor
+ (ADC jitter suppression)","CRCW040210K0FKED
+ Vishay Dale","Resistance: 10 kΩ ±1%
+ TCR: 100 ppm/°C
+ Package: 0402 SMD
+ Power: 0.1 W
+ Type: Thick film
+ Rated: AEC-Q200",,0402 SMD,Series R in RC filter on each pot-to-ADC line. 10 kΩ + 100 nF C0G → fc ≈ 160 Hz. Rolls off hand-tremor noise (5–20 Hz) while passing intentional dial changes.
+,,"RC Filter Capacitor
+ (ADC jitter — C0G ONLY)","GCM155R71C104KA55D
+ Murata Electronics","Value: 100 nF ← C0G/NP0
+ Voltage: 16 V
+ Package: 0402 SMD
+ Cap drift: <±30 ppm/°C
+ Bias drift: ≤±5%
+ Tolerance: ±10%",,0402 SMD,"C0G dielectric is MANDATORY. X5R/X7R caps lose 50–70% capacitance at ADC input bias voltages, shifting RC cutoff unpredictably. Do NOT substitute with X5R/X7R (e.g. GRM155R61A104KA01D)."
+,,"Bulk Bypass Capacitor
+ (VDD rail decoupling)","CL05B104KO5NNNC
+ Samsung Electro-Mech.","Value: 100 nF
+ Dielectric: X5R
+ Voltage: 10 V
+ Package: 0402 SMD
+ Tolerance: ±10%
+ Temp: −55 to +85°C",,0402 SMD,"Power rail decoupling near MCU VDD and ADC VREF pins. X5R fine here (power path, not signal path). Suppresses digital switching noise from MCU clock edges coupling into ADC readings."
