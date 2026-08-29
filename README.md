@@ -1,72 +1,7 @@
-# Low-Power, Real-Time Adaptive Software-Defined Sonar Transmitter Payload
-
-> **Smart India Hackathon (SIH) — Problem Statement 26058**  
-> **Target Platform:** Autonomous Underwater Vehicles (AUVs)  
-> **Core Architecture:** STM32H7 (ARM Cortex-M7) + Custom Analog Signal Conditioning Front-End
-
----
-
-## 1. Executive Summary
-
-Autonomous Underwater Vehicles (AUVs) operating in dynamic marine environments face a critical trade-off between image resolution and signal penetration. High-frequency acoustic chirps (500 kHz) deliver high-resolution mapping in clear waters but scatter rapidly in turbid or deep environments. Conversely, low-frequency chirps (100 kHz) penetrate sediment-heavy waters at the expense of resolution.
-
-This repository contains the embedded firmware and hardware architecture for a **Software-Defined Sonar (SDS) Transmitter Payload**. The module continuously synthesizes windowed Linear Frequency Modulated (LFM) chirps and dynamically adapts center frequency, pulse duration, and output power in real time using Direct Digital Synthesis (DDS), Direct Memory Access (DMA), and analog front-end signal conditioning without stalling the host CPU.
-
----
-
-## 2. Key Architecture & Features
-*   **Zero-CPU Waveform Streaming:** 12-bit DAC conversions are clocked strictly by hardware timer triggers (`TIM6_TRGO`) and fed via circular DMA from internal SRAM buffers (`D1 AXI`), keeping CPU utilization below 1% during transmission.
-*   **Direct Digital Synthesis (DDS):** Operates at a fixed sample rate ($F_s = 2.0\text{ MSPS}$) with a 32-bit phase accumulator, allowing instant frequency shifts without altering reconstruction filter behavior or Nyquist thresholds.
-*   **Integer Q15 Windowing Engine:** Pre-computes static Blackman window envelope tables in Q15 fixed-point arithmetic, completely eliminating floating-point math during runtime adaptation loops.
-*   **Ping-Pong Buffer Management:** Alternates active transmission between dual SRAM lookup tables (`Buffer_A` and `Buffer_B`) to allow background recalculation and seamless waveform swapping without acoustic phase discontinuities.
-*   **Analog Front-End Conditioning:** Integrates a 4th-order Sallen-Key Bessel reconstruction filter (AD8032), an analog-controlled Variable Gain Amplifier (AD8330), an edge-smoothing transient mute switch (ADG701), and a high-slew-rate output driver (THS3091).
-
----
-
-## 3. Repository Structure
-
-```text
-            ├── Core/
-            │   ├── Inc/                    # Core configuration and HAL headers
-            │   └── Src/
-            │       ├── main.c              # System setup & low-rate adaptation superloop
-            │       └── stm32h7xx_it.c      # Interrupt handlers (DMA/ADC)
-            │
-            ├── App/
-            │   ├── Dsp/
-            │   │   ├── chirp_generator.c   # Integer DDS LFM synthesis engine
-            │   │   ├── chirp_generator.h
-            │   │   ├── windowing.c         # Q15 Blackman windowing LUT generation
-            │   │   └── windowing.h
-            │   │
-            │   └── Adaptation/
-            │       ├── env_adaptation.c    # Transfer functions mapping ADC to DDS/VGA parameters
-            │       └── env_adaptation.h
-            │
-            ├── Bsp/
-            │   ├── Inc/
-            │   │   ├── dac_dma_streamer.h  # DMA circular streaming & buffer swap controller
-            │   │   ├── env_sensors_adc.h   # Multi-channel ADC reading for sensor emulation
-            │   │   ├── aux_dac_vga.h       # Auxiliary DAC DC voltage driver for AD8330 gain
-            │   │   └── transient_mute.h    # GPIO driver for ADG701 transient mute switch
-            │   └── Src/
-            │       ├── dac_dma_streamer.c
-            │       ├── env_sensors_adc.c
-            │       ├── aux_dac_vga.c
-            │       └── transient_mute.c
-            │
-            ├── Config/
-            │   └── sonar_config.h          # System constants, frequency limits, and buffer sizes
-            │
-            └── Docs/
-                ├── SIH_Component_List.csv  # Bill of Materials & hardware specs
-                └── Architecture_Flow.png   # Complete subsystem block diagram
-```
-
 # 🌊 Adaptive Software-Defined Sonar Transmitter Payload (SIH PS 26058)
 
 [![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen.svg)]()
-[![Hardware](https://img.shields.io/badge/Hardware-MCU%2FFPGA-blue.svg)]()
+[![Hardware](https://img.shields.io/badge/Hardware-STM32H7-blue.svg)]()
 [![Firmware](https://img.shields.io/badge/Firmware-Zero--CPU%20%7C%20DMA-orange.svg)]()
 
 ## 📌 Overview
@@ -87,15 +22,20 @@ Instead of bottlenecking the main processor to generate continuous waveforms:
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture & Core Hardware Components
 
-### 1. Hardware Architecture
-*   **Core Controller:** High-efficiency Microcontroller / FPGA tailored for fast DMA transfers and precise timer generation.
-*   **Environmental Sensor Array:** Interfaces for capturing real-time water conditions to inform acoustic adaptation.
-*   **Signal Conditioning Block:** Amplification and filtering circuits designed to translate the digital DMA stream into pristine analog acoustic pulses.
-*   *(See `hardware/BOM.csv` for the fully finalized Bill of Materials).*
+Our design specifically avoids heavy FPGA-based complexity, opting instead for a powerful microcontroller paired with a high-speed analog front-end integration to minimize power consumption.
 
-### 2. Firmware Architecture
+### Bill of Materials (BOM) Highlights:
+*   **Core Microcontroller:** **STM32H743VIT6** – Optimized for fast DMA transfers and precise hardware timer execution.
+*   **Reconstruction Filter:** **AD8032 Dual Op-Amp** – Used for a 4th-order Sallen-Key Bessel filtering stage to smooth the DAC output.
+*   **Amplitude Control:** **AD8330 Variable Gain Amplifier (VGA)** – Handles dynamic amplitude scaling of the waveform based on environmental factors.
+*   **Output Driver:** **THS3091 Current-Feedback Driver** – Ensures signal integrity over the transmission line with strict 50-ohm back-termination.
+*   **Transient Suppression:** **ADG701 Analog Switch** – Prevents startup pops and glitches via transient muting.
+*   **Simulation Inputs:** **10k Linear Potentiometers** (with C0G RC anti-jitter filters) – Used on the bench to physically dial in simulated environmental changes.
+*   **Power Subsystem:** **TPS7A20-3.3 Ultra-Low-Noise LDO Regulators** and **LMZM23601 Buck Converters** – Providing clean, stable power rails for both the analog and digital sections.
+
+### Firmware Architecture
 *   **Sensor Polling & Compute:** Interrupt-driven sensor polling that triggers parameter recalculation only when significant environmental deltas occur.
 *   **DMA Controller:** Manages the memory-to-peripheral data transfer of waveform lookup tables (LUTs).
 *   **Timer Modules:** Synchronized with the DMA to ensure exact frequency and phase of the output signal.
@@ -128,8 +68,8 @@ Instead of bottlenecking the main processor to generate continuous waveforms:
 ## 🛠️ Usage Components
 
 ### Prerequisites
-*   **Toolchain:** GCC for ARM / Vendor-specific FPGA toolchain (depending on final selected core).
-*   **Flashing Tool:** J-Link or ST-Link v2 debugger.
+*   **Toolchain:** GCC for ARM (STM32 CubeIDE recommended).
+*   **Flashing Tool:** ST-Link v2 / v3 debugger.
 *   **Testing:** Logic Analyzer (e.g., Saleae) and an Oscilloscope for verifying signal conditioning output.
 
 ### Building the Firmware
@@ -146,14 +86,14 @@ make
 
 Since physical underwater testing requires deployment, the repository includes a stimulation framework to test the Zero-CPU adaptation logic on the bench.
 
-1.  **Flash the MCU:** Flash the compiled firmware onto the development board.
-2.  **Connect the Stimulator:** Connect the MCU's sensor UART/I2C pins to your PC via a USB-to-Serial adapter.
-3.  **Run Environmental Stimulation:** Use the provided Python script to inject changing environmental conditions, simulating a diving AUV.
+1.  **Flash the MCU:** Flash the compiled firmware onto the STM32H743VIT6 development board.
+2.  **Connect the Stimulator:** Connect the MCU's sensor ADC pins to the 10k potentiometers. 
+3.  **Run Environmental Stimulation:** Use the potentiometers to simulate changing water density/depth, or use the provided Python script to inject digital mock data via UART.
     ```bash
     cd sim/
     python env_stimulator.py --port COM3 --scenario deep_dive
     ```
-4.  **Observe the Output:** Connect an oscilloscope to the DAC/Timer output pins. You will observe the waveform frequency and amplitude adapting dynamically to the stimulator's data stream while the CPU remains in its low-power state.
+4.  **Observe the Output:** Connect an oscilloscope to the DAC output and post-THS3091 driver stages. You will observe the waveform frequency and amplitude adapting dynamically to the stimulator's data stream while the CPU remains in its low-power sleep state.
 
 ---
 
