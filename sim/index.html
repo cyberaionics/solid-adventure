@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interactive simulation of the Adaptive Software-Defined Sonar Transmitter for AUV — SIH PS 26058">
+<title>Adaptive Sonar Transmitter Simulator — SIH 26058</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ═══ HEADER ═══ -->
+  <header id="app-header">
+    <div class="header-left">
+      <div class="logo-mark">◈</div>
+      <div>
+        <h1>Adaptive Sonar Transmitter</h1>
+        <p class="subtitle">Zero-CPU DMA Simulation · STM32H743 · SIH 26058</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-chip" id="chip-mute"><span class="dot dot-green"></span>OUTPUT LIVE</div>
+      <div class="status-chip" id="chip-buffer"><span class="dot dot-cyan"></span>BUF A</div>
+      <div class="status-chip" id="chip-cpu"><span class="dot dot-amber"></span>CPU SLEEP</div>
+    </div>
+  </header>
+
+  <!-- ═══ PARAMETER BAR ═══ -->
+  <section id="param-bar">
+    <div class="param-card">
+      <span class="param-label">Sample Rate</span>
+      <span class="param-value" id="pv-srate">2.000 MHz</span>
+    </div>
+    <div class="param-card">
+      <span class="param-label">DAC Resolution</span>
+      <span class="param-value">12-bit</span>
+    </div>
+    <div class="param-card">
+      <span class="param-label">LUT Samples</span>
+      <span class="param-value">1024</span>
+    </div>
+    <div class="param-card">
+      <span class="param-label">Start Freq</span>
+      <span class="param-value" id="pv-startf">100.0 kHz</span>
+    </div>
+    <div class="param-card">
+      <span class="param-label">End Freq</span>
+      <span class="param-value" id="pv-endf">200.0 kHz</span>
+    </div>
+    <div class="param-card">
+      <span class="param-label">VGA Gain</span>
+      <span class="param-value" id="pv-gain">2048</span>
+    </div>
+  </section>
+
+  <!-- ═══ MAIN GRID ═══ -->
+  <main id="main-grid">
+    <!-- LEFT: Controls -->
+    <aside id="controls-panel">
+      <h2 class="panel-title">Environmental Sensors</h2>
+      <p class="panel-desc">Simulated ADC inputs (0–4095). Drag to change water conditions.</p>
+
+      <div class="slider-group" id="sg-turbidity">
+        <div class="slider-header">
+          <label for="sl-turbidity">Turbidity</label>
+          <span class="slider-val" id="sv-turbidity">0</span>
+        </div>
+        <input type="range" id="sl-turbidity" min="0" max="4095" value="0" class="styled-range range-teal">
+        <p class="slider-hint">Maps to chirp center frequency (100–400 kHz)</p>
+      </div>
+
+      <div class="slider-group" id="sg-depth">
+        <div class="slider-header">
+          <label for="sl-depth">Depth</label>
+          <span class="slider-val" id="sv-depth">2048</span>
+        </div>
+        <input type="range" id="sl-depth" min="0" max="4095" value="2048" class="styled-range range-violet">
+        <p class="slider-hint">Maps to VGA gain voltage (AD8330)</p>
+      </div>
+
+      <div class="slider-group" id="sg-salinity">
+        <div class="slider-header">
+          <label for="sl-salinity">Salinity</label>
+          <span class="slider-val" id="sv-salinity">2048</span>
+        </div>
+        <input type="range" id="sl-salinity" min="0" max="4095" value="2048" class="styled-range range-orange">
+        <p class="slider-hint">Read but reserved — not yet mapped</p>
+      </div>
+
+      <hr class="divider">
+
+      <h2 class="panel-title">Adaptation Engine</h2>
+      <div class="adapt-info">
+        <div class="adapt-row"><span>Jitter Threshold</span><span class="mono">50</span></div>
+        <div class="adapt-row"><span>Last Turbidity Δ</span><span class="mono" id="ai-turb-delta">0</span></div>
+        <div class="adapt-row"><span>Last Depth Δ</span><span class="mono" id="ai-depth-delta">0</span></div>
+        <div class="adapt-row"><span>Buffer Swaps</span><span class="mono" id="ai-swaps">0</span></div>
+        <div class="adapt-row"><span>Gain Updates</span><span class="mono" id="ai-gains">0</span></div>
+      </div>
+      <div id="adapt-flash" class="adapt-flash hidden">⚡ BUFFER SWAPPED</div>
+
+      <hr class="divider">
+
+      <h2 class="panel-title">Signal Chain</h2>
+      <div class="chain-diagram">
+        <div class="chain-node active" id="cn-sensor">Sensor ADC</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node active" id="cn-adapt">Adapt Engine</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node active" id="cn-dds">DDS Chirp</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node active" id="cn-dma">DMA → DAC</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node active" id="cn-filter">Bessel LPF</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node active" id="cn-driver">THS3091</div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Visualizations -->
+    <section id="viz-panel">
+      <div class="viz-card" id="vc-waveform">
+        <div class="viz-header">
+          <h3>DAC Output — Time Domain</h3>
+          <span class="viz-badge">1024 samples · 12-bit</span>
+        </div>
+        <canvas id="canvas-waveform" width="900" height="280"></canvas>
+      </div>
+
+      <div class="viz-row">
+        <div class="viz-card" id="vc-spectrum">
+          <div class="viz-header">
+            <h3>Frequency Spectrum (FFT)</h3>
+            <span class="viz-badge" id="vb-peak">Peak: — kHz</span>
+          </div>
+          <canvas id="canvas-spectrum" width="440" height="220"></canvas>
+        </div>
+
+        <div class="viz-card" id="vc-window">
+          <div class="viz-header">
+            <h3>Blackman Window</h3>
+            <span class="viz-badge">Q15 · 1024 pts</span>
+          </div>
+          <canvas id="canvas-window" width="440" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="app-footer">
+    Built for Smart India Hackathon 2025-26 · Problem Statement 26058 · ForgeX Team
+  </footer>
+
+  <script src="engine.js"></script>
+</body>
+</html>
